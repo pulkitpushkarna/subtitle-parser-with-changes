@@ -32,6 +32,9 @@ public class SrtParser implements SubtitleParser {
         CUE_TEXT;
     }
 
+    public static final String UTF8_BOM = "\uFEFF";
+
+
     private String charset; // Charset of the input files
 
     public SrtParser(String charset) {
@@ -42,7 +45,14 @@ public class SrtParser implements SubtitleParser {
     public SrtObject parse(InputStream is) throws IOException, SubtitleParsingException {
     	return parse(is, true);
     }
-    
+
+    private static String removeUTF8BOM(String s) {
+        if (s.startsWith(UTF8_BOM)) {
+            s = s.substring(1);
+        }
+        return s;
+    }
+
     @Override
     public SrtObject parse(InputStream is, boolean strict) throws IOException, SubtitleParsingException {
         // Create srt object
@@ -67,6 +77,7 @@ public class SrtParser implements SubtitleParser {
 
                 // First textLine is the cue number
                 try {
+                    textLine = removeUTF8BOM(textLine);
                     Integer.parseInt(textLine);
                 } catch (NumberFormatException e) {
                     throw new SubtitleParsingException(String.format(

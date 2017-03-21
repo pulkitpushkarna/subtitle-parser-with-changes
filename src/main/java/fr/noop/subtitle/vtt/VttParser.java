@@ -47,13 +47,24 @@ public class VttParser implements SubtitleParser {
 
     private String charset; // Charset of the input files
 
+    public static final String UTF8_BOM = "\uFEFF";
+
     public VttParser(String charset) {
         this.charset = charset;
     }
 
+    private static String removeUTF8BOM(String s) {
+        if (s.startsWith(UTF8_BOM)) {
+            s = s.substring(1);
+        }
+        return s;
+    }
+
     @Override
     public VttObject parse(InputStream is) throws IOException, SubtitleParsingException {
-    	return parse(is, true);
+//    	return parse(is, true);
+        //change strict set to false
+        return parse(is, false);
     }
     
     @Override
@@ -70,6 +81,8 @@ public class VttParser implements SubtitleParser {
 
         while ((textLine = br.readLine()) != null) {
             textLine = textLine.trim();
+            //New change
+            textLine = removeUTF8BOM(textLine);
 
             // All Vtt files start with WEBVTT
             if (cursorStatus == CursorStatus.NONE && textLine.equals("WEBVTT")) {
@@ -86,13 +99,12 @@ public class VttParser implements SubtitleParser {
                 // New cue
                 cue = new VttCue();
                 cursorStatus = CursorStatus.CUE_ID;
-
-                if (!textLine.substring(13, 16).equals("-->")) {
+                // Change textLine.length()>13 with negation
+                if (!(textLine.length()>13 && textLine.substring(13, 16).equals("-->"))) {
                     // First textLine is the cue number
                     cue.setId(textLine);
                     continue;
                 }
-
                 // There is no cue number
             }
 
@@ -100,15 +112,18 @@ public class VttParser implements SubtitleParser {
             // Second textLine defines the start and end time codes
             // 00:01:21.456 --> 00:01:23.417
             if (cursorStatus == CursorStatus.CUE_ID) {
-                if (!textLine.substring(13, 16).equals("-->")) {
-                    throw new SubtitleParsingException(String.format(
-                            "Timecode textLine is badly formated: %s", textLine));
-                }
+               //Change if statement textLine.length()>13
+                if(textLine.length()>13) {
+                    if (!textLine.substring(13, 16).equals("-->")) {
+                        throw new SubtitleParsingException(String.format(
+                                "Timecode textLine is badly formated: %s", textLine));
+                    }
 
-                cue.setStartTime(this.parseTimeCode(textLine.substring(0, 12)));
-                cue.setEndTime(this.parseTimeCode(textLine.substring(17)));
-                cursorStatus = CursorStatus.CUE_TIMECODE;
-                continue;
+                    cue.setStartTime(this.parseTimeCode(textLine.substring(0, 12)));
+                    cue.setEndTime(this.parseTimeCode(textLine.substring(17)));
+                    cursorStatus = CursorStatus.CUE_TIMECODE;
+                    continue;
+                }
             }
 
             // Following lines are the cue lines
@@ -149,8 +164,7 @@ public class VttParser implements SubtitleParser {
                 cursorStatus = CursorStatus.EMPTY_LINE;
                 continue;
             }
-
-        	throw new SubtitleParsingException(String.format(
+            throw new SubtitleParsingException(String.format(
         			"Unexpected line: %s", textLine));
         }
 
@@ -196,8 +210,11 @@ public class VttParser implements SubtitleParser {
                 tagStatus = TagStatus.CLOSE;
 
                 // Pop tag from tags
-                tag = tags.remove(tags.size()-1);
-
+                //file change
+               //Change if check placed for tag
+                if(tag!=null){
+                    tag = tags.remove(tags.size() - 1);
+                }
                 int closeTagLength = 1; // Size in chars of the close tag
 
                 if (textEnd.charAt(0) == '/') {
@@ -233,41 +250,44 @@ public class VttParser implements SubtitleParser {
             }
 
             for (String analyzedTag: analyzedTags) {
-                if (analyzedTag.equals("v")) {
-                    cueLine.setVoice(text);
-                    text = "";
-                    break;
-                }
-
-                // Bold characters
-                if (analyzedTag.equals("b")) {
-                    style.setProperty(SubtitleStyle.Property.FONT_WEIGHT, SubtitleStyle.FontWeight.BOLD);
-                    continue;
-                }
-
-                // Italic characters
-                if (analyzedTag.equals("i")) {
-                    style.setProperty(SubtitleStyle.Property.FONT_STYLE, SubtitleStyle.FontStyle.ITALIC);
-                    continue;
-                }
-
-                // Underline characters
-                if (analyzedTag.equals("u")) {
-                    style.setProperty(SubtitleStyle.Property.TEXT_DECORATION, SubtitleStyle.TextDecoration.UNDERLINE);
-                    continue;
-                }
-
-                // Class apply to characters
-                if (analyzedTag.equals("c")) {
-                    // Cannot convert class
-                    if (tagStatus == TagStatus.CLOSE && tag.equals("c") && !textEnd.equals("/c>")) {
-                        // This is not a real close tag
-                        // so push it again
+                //Change if check for analyzedTag tag
+                if(analyzedTag!=null) {
+                    if (analyzedTag.equals("v")) {
+                        cueLine.setVoice(text);
                         text = "";
-                        tags.add(tag);
+                        break;
                     }
 
-                    continue;
+                    // Bold characters
+                    if (analyzedTag.equals("b")) {
+                        style.setProperty(SubtitleStyle.Property.FONT_WEIGHT, SubtitleStyle.FontWeight.BOLD);
+                        continue;
+                    }
+
+                    // Italic characters
+                    if (analyzedTag.equals("i")) {
+                        style.setProperty(SubtitleStyle.Property.FONT_STYLE, SubtitleStyle.FontStyle.ITALIC);
+                        continue;
+                    }
+
+                    // Underline characters
+                    if (analyzedTag.equals("u")) {
+                        style.setProperty(SubtitleStyle.Property.TEXT_DECORATION, SubtitleStyle.TextDecoration.UNDERLINE);
+                        continue;
+                    }
+
+                    // Class apply to characters
+                    if (analyzedTag.equals("c")) {
+                        // Cannot convert class
+                        if (tagStatus == TagStatus.CLOSE && tag.equals("c") && !textEnd.equals("/c>")) {
+                            // This is not a real close tag
+                            // so push it again
+                            text = "";
+                            tags.add(tag);
+                        }
+
+                        continue;
+                    }
                 }
             }
 
