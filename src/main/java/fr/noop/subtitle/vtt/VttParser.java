@@ -140,7 +140,7 @@ public class VttParser implements SubtitleParser {
                 // If not strict, accept empty subtitle
                 if (textLine.isEmpty()) {
 					if (!strict) {
-						cue.setLines(parseCueText(cueText));
+                        cue.setLines(parseCueText(cueText));
 						vttObject.addCue(cue);
 						cue = null;
 						cueText = "";
@@ -172,6 +172,7 @@ public class VttParser implements SubtitleParser {
     }
 
     private List<SubtitleLine> parseCueText(String cueText) {
+
         String text = "";
         List<String> tags = new ArrayList<>();
         List<SubtitleLine> cueLines = new ArrayList<>();
@@ -223,7 +224,10 @@ public class VttParser implements SubtitleParser {
                 }
 
                 // Remove close tag from text
-                text = text.substring(0, text.length()-closeTagLength);
+                if(!cueText.contains("<font")|| !cueText.contains("</font")){
+                    text = text.substring(0, text.length()-closeTagLength);
+                }
+
             } else if (c != '\n' && i < cueText.length()-1){
                 continue;
             }
